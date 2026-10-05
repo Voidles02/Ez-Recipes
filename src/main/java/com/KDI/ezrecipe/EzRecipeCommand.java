@@ -67,7 +67,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
         }
 
         if (holder.recipeId == null) {
-            List<String> ids = getDisplayableRecipeIds();
+            List<String> ids = holder.recipeIds;
             for (int index = 0; index < RECIPE_SLOTS.length && index < ids.size(); index++) {
                 if (event.getRawSlot() == RECIPE_SLOTS[index]) {
                     openRecipe(player, ids.get(index));
@@ -86,18 +86,21 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
         }
 
         int topSize = event.getView().getTopInventory().getSize();
-        if (event.getRawSlots().stream().anyMatch(slot -> slot < topSize)) {
-            event.setCancelled(true);
+        for (int slot : event.getRawSlots()) {
+            if (slot < topSize) {
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 
     private void openRecipeMenu(Player player) {
-        RecipeMenuHolder holder = new RecipeMenuHolder(null);
+        List<String> ids = getDisplayableRecipeIds();
+        RecipeMenuHolder holder = new RecipeMenuHolder(null, ids);
         Inventory inventory = Bukkit.createInventory(holder, 27, MAIN_TITLE);
         holder.inventory = inventory;
         fill(inventory, "GRAY_STAINED_GLASS_PANE");
 
-        List<String> ids = getDisplayableRecipeIds();
         for (int index = 0; index < RECIPE_SLOTS.length && index < ids.size(); index++) {
             ConfigurationSection section = recipeManager.getRecipeSection(ids.get(index));
             if (section == null) {
@@ -129,7 +132,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
         }
 
         String displayName = color(section.getString("display-name", id));
-        RecipeMenuHolder holder = new RecipeMenuHolder(id);
+        RecipeMenuHolder holder = new RecipeMenuHolder(id, List.of());
         Inventory inventory = Bukkit.createInventory(holder, 45,
                 "§2Recipe - " + displayName);
         holder.inventory = inventory;
@@ -207,10 +210,12 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
 
     private static final class RecipeMenuHolder implements InventoryHolder {
         private final String recipeId;
+        private final List<String> recipeIds;
         private Inventory inventory;
 
-        private RecipeMenuHolder(String recipeId) {
+        private RecipeMenuHolder(String recipeId, List<String> recipeIds) {
             this.recipeId = recipeId;
+            this.recipeIds = recipeIds;
         }
 
         @Override

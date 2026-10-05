@@ -2,6 +2,7 @@ package com.KDI.ezrecipe;
 
 import com.cryptomorin.xseries.XMaterial;
 import org.bukkit.Bukkit;
+import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
@@ -30,6 +31,8 @@ public final class RecipeManager {
         }
 
         boolean changed = repairGoldenCarrot(recipes);
+        changed |= ensureDefaultRecipe(recipes, "netherite-template", "&cNetherite Upgrade Template", "NETHERITE_UPGRADE_SMITHING_TEMPLATE", List.of("NNN", "NDN", "NNN"), new String[][]{{"N", "NETHERRACK"}, {"D", "DIAMOND"}});
+        changed |= ensureDefaultRecipe(recipes, "netherite-scrap", "&8Netherite Scrap", "NETHERITE_SCRAP", List.of("SS ", "GG ", "   "), new String[][]{{"S", "SADDLE"}, {"G", "GOLD_INGOT"}});
         ConfigurationSection section = recipes.getConfigurationSection("exp-bottle");
         if (section == null) {
             section = recipes.createSection("exp-bottle");
@@ -89,6 +92,63 @@ public final class RecipeManager {
         }
     }
 
+    private boolean ensureDefaultRecipe(ConfigurationSection recipes, String id, String displayName, String result, List<String> shape, String[][] ingredientDefaults) {
+        boolean changed = false;
+        ConfigurationSection section = recipes.getConfigurationSection(id);
+        if (section == null) {
+            section = recipes.createSection(id);
+            changed = true;
+        }
+        if (!section.contains("enabled")) {
+            section.set("enabled", true);
+            changed = true;
+        }
+        if (!section.contains("display-name")) {
+            section.set("display-name", displayName);
+            changed = true;
+        }
+        if (!section.contains("result")) {
+            section.set("result", result);
+            changed = true;
+        }
+        if (!section.contains("amount")) {
+            section.set("amount", 1);
+            changed = true;
+        }
+        if (!section.contains("shape")) {
+            section.set("shape", shape);
+            changed = true;
+        }
+        if (!section.contains("replace-vanilla")) {
+            section.set("replace-vanilla", true);
+            changed = true;
+        }
+        ConfigurationSection ingredients = section.getConfigurationSection("ingredients");
+        if (ingredients == null) {
+            ingredients = section.createSection("ingredients");
+            changed = true;
+        }
+        for (String[] ingredient : ingredientDefaults) {
+            if (!ingredients.contains(ingredient[0])) {
+                ingredients.set(ingredient[0], ingredient[1]);
+                changed = true;
+            }
+        }
+        if (!validateRecipe(id, section, false)) {
+            section.set("result", result);
+            section.set("amount", 1);
+            section.set("shape", shape);
+            section.set("ingredients", null);
+            ingredients = section.createSection("ingredients");
+            for (String[] ingredient : ingredientDefaults) {
+                ingredients.set(ingredient[0], ingredient[1]);
+            }
+            section.set("replace-vanilla", true);
+            changed = true;
+        }
+        return changed;
+    }
+
     private boolean repairGoldenCarrot(ConfigurationSection recipes) {
         ConfigurationSection section = recipes.getConfigurationSection("golden-carrot");
         if (section != null && validateRecipe("golden-carrot", section, false)) {
@@ -124,6 +184,7 @@ public final class RecipeManager {
         }
 
         removePluginRecipes();
+        removeVanillaRecipes(recipes);
 
         for (String id : recipes.getKeys(false)) {
             ConfigurationSection section = recipes.getConfigurationSection(id);
@@ -131,6 +192,35 @@ public final class RecipeManager {
                 continue;
             }
             registerRecipe(id, section);
+        }
+    }
+
+    private void removeVanillaRecipes(ConfigurationSection recipes) {
+        List<Material> replacedResults = new ArrayList<>();
+        for (String id : recipes.getKeys(false)) {
+            ConfigurationSection section = recipes.getConfigurationSection(id);
+            if (section == null || !section.getBoolean("enabled", true) || !section.getBoolean("replace-vanilla", false)) {
+                continue;
+            }
+            Material result = material(section.getString("result"));
+            if (result != null && !replacedResults.contains(result)) {
+                replacedResults.add(result);
+            }
+        }
+        if (replacedResults.isEmpty()) {
+            return;
+        }
+
+        List<NamespacedKey> keys = new ArrayList<>();
+        Iterator<Recipe> iterator = Bukkit.recipeIterator();
+        while (iterator.hasNext()) {
+            Recipe recipe = iterator.next();
+            if (recipe instanceof Keyed keyed && keyed.getKey().getNamespace().equals("minecraft") && replacedResults.contains(recipe.getResult().getType())) {
+                keys.add(keyed.getKey());
+            }
+        }
+        for (NamespacedKey key : keys) {
+            Bukkit.removeRecipe(key);
         }
     }
 
