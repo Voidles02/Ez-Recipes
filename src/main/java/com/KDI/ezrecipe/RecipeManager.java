@@ -12,9 +12,11 @@ import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.ShapedRecipe;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.StringJoiner;
 
 public final class RecipeManager {
@@ -171,8 +173,10 @@ public final class RecipeManager {
 
     public void setup() {
         ensureLatestDefaults();
-        plugin.getConfig().set("setup-complete", true);
-        plugin.saveConfig();
+        if (!plugin.getConfig().getBoolean("setup-complete", false)) {
+            plugin.getConfig().set("setup-complete", true);
+            plugin.saveConfig();
+        }
         registerConfiguredRecipes();
     }
 
@@ -183,8 +187,7 @@ public final class RecipeManager {
             return;
         }
 
-        removePluginRecipes();
-        removeVanillaRecipes(recipes);
+        removeExistingRecipes(recipes);
 
         for (String id : recipes.getKeys(false)) {
             ConfigurationSection section = recipes.getConfigurationSection(id);
@@ -195,28 +198,33 @@ public final class RecipeManager {
         }
     }
 
-    private void removeVanillaRecipes(ConfigurationSection recipes) {
-        List<Material> replacedResults = new ArrayList<>();
+    private void removeExistingRecipes(ConfigurationSection recipes) {
+        Set<Material> replacedResults = new HashSet<>();
         for (String id : recipes.getKeys(false)) {
             ConfigurationSection section = recipes.getConfigurationSection(id);
             if (section == null || !section.getBoolean("enabled", true) || !section.getBoolean("replace-vanilla", false)) {
                 continue;
             }
             Material result = material(section.getString("result"));
-            if (result != null && !replacedResults.contains(result)) {
+            if (result != null) {
                 replacedResults.add(result);
             }
-        }
-        if (replacedResults.isEmpty()) {
-            return;
         }
 
         List<NamespacedKey> keys = new ArrayList<>();
         Iterator<Recipe> iterator = Bukkit.recipeIterator();
         while (iterator.hasNext()) {
             Recipe recipe = iterator.next();
-            if (recipe instanceof Keyed keyed && keyed.getKey().getNamespace().equals("minecraft") && replacedResults.contains(recipe.getResult().getType())) {
-                keys.add(keyed.getKey());
+            if (!(recipe instanceof Keyed keyed)) {
+                continue;
+            }
+
+            NamespacedKey key = keyed.getKey();
+            String namespace = key.getNamespace();
+            boolean pluginRecipe = namespace.equals(plugin.getName().toLowerCase(Locale.ROOT)) || namespace.equals("ezrecipes");
+            boolean replacedVanillaRecipe = namespace.equals("minecraft") && replacedResults.contains(recipe.getResult().getType());
+            if (pluginRecipe || replacedVanillaRecipe) {
+                keys.add(key);
             }
         }
         for (NamespacedKey key : keys) {
@@ -398,27 +406,6 @@ public final class RecipeManager {
             plugin.getLogger().warning("Skipping recipe " + id + ": " + reason);
         }
         return false;
-    }
-
-    private void removePluginRecipes() {
-        List<NamespacedKey> keys = new ArrayList<>();
-        Iterator<Recipe> recipes = Bukkit.recipeIterator();
-        while (recipes.hasNext()) {
-            Recipe recipe = recipes.next();
-            if (recipe instanceof ShapedRecipe shaped) {
-                NamespacedKey key = shaped.getKey();
-                String namespace = key.getNamespace();
-                if (namespace.equals(plugin.getName().toLowerCase(Locale.ROOT)) || namespace.equals("ezrecipes")) {
-                    keys.add(key);
-                }
-            }
-        }
-
-        for (NamespacedKey key : keys) {
-            if (key != null) {
-                Bukkit.removeRecipe(key);
-            }
-        }
     }
 
     private NamespacedKey recipeKey(String id) {

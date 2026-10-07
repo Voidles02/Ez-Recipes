@@ -1,20 +1,20 @@
 name: EZRecipe
-version: 1.0.6
+version: 1.0.9
 main: com.KDI.ezrecipe.EzRecipePlugin
 api-version: '1.21'
 author: voidles02
 description: Simple and configurable crafting recipes.
 commands:
-  setup:
+  ez-setup:
     description: Set up EZRecipe and register its recipes.
-    usage: /setup
+    usage: /ez-setup
     permission: ezrecipe.admin
-    aliases: [ez-setup]
-  status:
+    aliases: [setup]
+  ez-status:
     description: Check whether EZRecipe recipes are registered.
-    usage: /status
+    usage: /ez-status
     permission: ezrecipe.admin
-    aliases: [ez-status]
+    aliases: [status]
   ez-show:
     description: Show all EZRecipe crafting recipes.
     usage: /ez-show

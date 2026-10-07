@@ -20,8 +20,8 @@ public final class EzRecipePlugin extends JavaPlugin {
 
         EzRecipeCommand command = new EzRecipeCommand(recipeManager);
         getServer().getPluginManager().registerEvents(command, this);
-        registerCommand("setup", command);
-        registerCommand("status", command);
+        registerCommand("ez-setup", command);
+        registerCommand("ez-status", command);
         registerCommand("ez-show", command);
     }
 

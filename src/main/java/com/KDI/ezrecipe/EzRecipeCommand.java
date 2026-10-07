@@ -33,11 +33,11 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         switch (command.getName().toLowerCase()) {
-            case "setup" -> {
+            case "ez-setup" -> {
                 recipeManager.setup();
                 sender.sendMessage("§aEZRecipe has been set up and its recipes were registered.");
             }
-            case "status" -> recipeManager.sendStatus(sender);
+            case "ez-status" -> recipeManager.sendStatus(sender);
             case "ez-show" -> {
                 if (sender instanceof Player player) {
                     openRecipeMenu(player);
