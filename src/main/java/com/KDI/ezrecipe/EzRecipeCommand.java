@@ -20,7 +20,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import java.util.List;
 
 public final class EzRecipeCommand implements CommandExecutor, Listener {
-    private static final String MAIN_TITLE = "§2EZRecipes - Recipes";
+    private static final String MAIN_TITLE = "§2EZRecipes §8» §fRecipes";
     private static final int[] RECIPE_SLOTS = {10, 11, 12, 13, 14, 15};
     private static final int[] GRID_SLOTS = {10, 11, 12, 19, 20, 21, 28, 29, 30};
 
@@ -68,14 +68,25 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
 
         if (holder.recipeId == null) {
             List<String> ids = holder.recipeIds;
+            if (event.getRawSlot() == 18 && holder.page > 0) {
+                openRecipeMenu(player, holder.page - 1);
+                return;
+            }
+            if (event.getRawSlot() == 26 && (holder.page + 1) * RECIPE_SLOTS.length < ids.size()) {
+                openRecipeMenu(player, holder.page + 1);
+                return;
+            }
             for (int index = 0; index < RECIPE_SLOTS.length && index < ids.size(); index++) {
                 if (event.getRawSlot() == RECIPE_SLOTS[index]) {
-                    openRecipe(player, ids.get(index));
+                    int recipeIndex = holder.page * RECIPE_SLOTS.length + index;
+                    if (recipeIndex < ids.size()) {
+                        openRecipe(player, ids.get(recipeIndex), holder.page);
+                    }
                     return;
                 }
             }
         } else if (event.getRawSlot() == 40) {
-            openRecipeMenu(player);
+            openRecipeMenu(player, holder.page);
         }
     }
 
@@ -95,14 +106,22 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
     }
 
     private void openRecipeMenu(Player player) {
+        openRecipeMenu(player, 0);
+    }
+
+    private void openRecipeMenu(Player player, int requestedPage) {
         List<String> ids = getDisplayableRecipeIds();
-        RecipeMenuHolder holder = new RecipeMenuHolder(null, ids);
+        int pageCount = Math.max(1, (ids.size() + RECIPE_SLOTS.length - 1) / RECIPE_SLOTS.length);
+        int page = Math.max(0, Math.min(requestedPage, pageCount - 1));
+        RecipeMenuHolder holder = new RecipeMenuHolder(null, ids, page);
         Inventory inventory = Bukkit.createInventory(holder, 27, MAIN_TITLE);
         holder.inventory = inventory;
-        fill(inventory, "GRAY_STAINED_GLASS_PANE");
+        fill(inventory, "BLACK_STAINED_GLASS_PANE");
 
-        for (int index = 0; index < RECIPE_SLOTS.length && index < ids.size(); index++) {
-            ConfigurationSection section = recipeManager.getRecipeSection(ids.get(index));
+        int firstRecipe = page * RECIPE_SLOTS.length;
+        for (int index = 0; index < RECIPE_SLOTS.length && firstRecipe + index < ids.size(); index++) {
+            String id = ids.get(firstRecipe + index);
+            ConfigurationSection section = recipeManager.getRecipeSection(id);
             if (section == null) {
                 continue;
             }
@@ -115,28 +134,36 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             ItemStack item = new ItemStack(result, Math.max(1, section.getInt("amount", 1)));
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(color(section.getString("display-name", ids.get(index))));
+                meta.setDisplayName(color(section.getString("display-name", id)));
                 meta.setLore(List.of("§7Click to view this recipe."));
                 item.setItemMeta(meta);
             }
             inventory.setItem(RECIPE_SLOTS[index], item);
         }
 
+        if (page > 0) {
+            inventory.setItem(18, item("ARROW", "§ePrevious page", List.of("§7Page " + page + " of " + pageCount)));
+        }
+        inventory.setItem(22, item("PAPER", "§fPage " + (page + 1) + " of " + pageCount, List.of()));
+        if (page + 1 < pageCount) {
+            inventory.setItem(26, item("ARROW", "§eNext page", List.of("§7Page " + (page + 2) + " of " + pageCount)));
+        }
+
         player.openInventory(inventory);
     }
 
-    private void openRecipe(Player player, String id) {
+    private void openRecipe(Player player, String id, int page) {
         ConfigurationSection section = recipeManager.getRecipeSection(id);
         if (section == null) {
             return;
         }
 
         String displayName = color(section.getString("display-name", id));
-        RecipeMenuHolder holder = new RecipeMenuHolder(id, List.of());
+        RecipeMenuHolder holder = new RecipeMenuHolder(id, List.of(), page);
         Inventory inventory = Bukkit.createInventory(holder, 45,
-                "§2Recipe - " + displayName);
+                "§2Recipe §8» " + displayName);
         holder.inventory = inventory;
-        fill(inventory, "GRAY_STAINED_GLASS_PANE");
+        fill(inventory, "BLACK_STAINED_GLASS_PANE");
 
         List<String> shape = section.getStringList("shape");
         ConfigurationSection ingredients = section.getConfigurationSection("ingredients");
@@ -155,6 +182,8 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             }
         }
 
+        inventory.setItem(13, item("ARROW", "§bCrafting result", List.of("§7Ingredients produce the item on the right.")));
+
         Material result = recipeManager.parseMaterial(section.getString("result"));
         if (result != null) {
             ItemStack output = new ItemStack(result, Math.max(1, section.getInt("amount", 1)));
@@ -167,7 +196,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             inventory.setItem(16, output);
         }
 
-        ItemStack back = item("ARROW", "§cBack to recipes", List.of("§7Click to return."));
+        ItemStack back = item("ARROW", "§cBack to recipes", List.of("§7Click to return to page " + (page + 1) + "."));
         if (back != null) {
             inventory.setItem(40, back);
         }
@@ -211,11 +240,13 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
     private static final class RecipeMenuHolder implements InventoryHolder {
         private final String recipeId;
         private final List<String> recipeIds;
+        private final int page;
         private Inventory inventory;
 
-        private RecipeMenuHolder(String recipeId, List<String> recipeIds) {
+        private RecipeMenuHolder(String recipeId, List<String> recipeIds, int page) {
             this.recipeId = recipeId;
             this.recipeIds = recipeIds;
+            this.page = page;
         }
 
         @Override

@@ -1,5 +1,5 @@
 name: EZRecipe
-version: 1.0.9
+version: 1.0.15
 main: com.KDI.ezrecipe.EzRecipePlugin
 api-version: '1.21'
 author: voidles02

@@ -56,7 +56,7 @@ recipes:
 
   netherite-template:
     enabled: true
-    display-name: '&cNetherite Upgrade Template'
+    display-name: '&cUpgrade Template'
     result: NETHERITE_UPGRADE_SMITHING_TEMPLATE
     amount: 1
     replace-vanilla: true
@@ -68,18 +68,17 @@ recipes:
       N: NETHERRACK
       D: DIAMOND
 
-  netherite-scrap:
+  netherite-ingot:
     enabled: true
-    display-name: '&8Netherite Scrap'
-    result: NETHERITE_SCRAP
+    display-name: '&8Netherite Ingot'
+    result: NETHERITE_INGOT
     amount: 1
     replace-vanilla: true
     shape:
-      - 'SS '
-      - 'GG '
-      - '   '
+      - SS
+      - GG
     ingredients:
-      S: SADDLE
+      S: NETHERITE_SCRAP
       G: GOLD_INGOT
 
   golden-carrot:

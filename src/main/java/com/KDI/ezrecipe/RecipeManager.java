@@ -7,6 +7,11 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.FurnaceSmeltEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.inventory.PrepareSmithingEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Recipe;
 import org.bukkit.inventory.ShapedRecipe;
@@ -19,8 +24,9 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.StringJoiner;
 
-public final class RecipeManager {
+public final class RecipeManager implements Listener {
     private final EzRecipePlugin plugin;
+    private Set<Material> replacedVanillaResults = Set.of();
 
     public RecipeManager(EzRecipePlugin plugin) {
         this.plugin = plugin;
@@ -33,8 +39,11 @@ public final class RecipeManager {
         }
 
         boolean changed = repairGoldenCarrot(recipes);
-        changed |= ensureDefaultRecipe(recipes, "netherite-template", "&cNetherite Upgrade Template", "NETHERITE_UPGRADE_SMITHING_TEMPLATE", List.of("NNN", "NDN", "NNN"), new String[][]{{"N", "NETHERRACK"}, {"D", "DIAMOND"}});
-        changed |= ensureDefaultRecipe(recipes, "netherite-scrap", "&8Netherite Scrap", "NETHERITE_SCRAP", List.of("SS ", "GG ", "   "), new String[][]{{"S", "SADDLE"}, {"G", "GOLD_INGOT"}});
+        changed |= migrateLegacyNetheriteScrapRecipe(recipes);
+        changed |= ensureDefaultRecipe(recipes, "netherite-template", "&cUpgrade Template", "NETHERITE_UPGRADE_SMITHING_TEMPLATE", List.of("NNN", "NDN", "NNN"), new String[][]{{"N", "NETHERRACK"}, {"D", "DIAMOND"}});
+        changed |= migrateNetheriteTemplateDisplayName(recipes);
+        changed |= ensureDefaultRecipe(recipes, "netherite-ingot", "&8Netherite Ingot", "NETHERITE_INGOT", List.of("SS", "GG"), new String[][]{{"S", "NETHERITE_SCRAP"}, {"G", "GOLD_INGOT"}});
+        changed |= migrateOldNetheriteIngotPattern(recipes);
         ConfigurationSection section = recipes.getConfigurationSection("exp-bottle");
         if (section == null) {
             section = recipes.createSection("exp-bottle");
@@ -92,6 +101,53 @@ public final class RecipeManager {
             plugin.saveConfig();
             plugin.getLogger().info("Added or repaired the exp-bottle recipe in config.yml.");
         }
+    }
+
+    private boolean migrateLegacyNetheriteScrapRecipe(ConfigurationSection recipes) {
+        ConfigurationSection legacy = recipes.getConfigurationSection("netherite-scrap");
+        if (legacy == null) {
+            return false;
+        }
+
+        boolean enabled = legacy.getBoolean("enabled", true);
+        recipes.set("netherite-scrap", null);
+        ConfigurationSection replacement = recipes.getConfigurationSection("netherite-ingot");
+        if (replacement == null) {
+            replacement = recipes.createSection("netherite-ingot");
+        }
+        replacement.set("enabled", enabled);
+        replacement.set("display-name", "&8Netherite Ingot");
+        replacement.set("result", "NETHERITE_INGOT");
+        replacement.set("amount", 1);
+        replacement.set("replace-vanilla", true);
+        replacement.set("shape", List.of("SS", "GG"));
+        replacement.set("ingredients", null);
+        ConfigurationSection ingredients = replacement.createSection("ingredients");
+        ingredients.set("S", "NETHERITE_SCRAP");
+        ingredients.set("G", "GOLD_INGOT");
+        return true;
+    }
+
+    private boolean migrateOldNetheriteIngotPattern(ConfigurationSection recipes) {
+        ConfigurationSection ingot = recipes.getConfigurationSection("netherite-ingot");
+        if (ingot == null) {
+            return false;
+        }
+        List<String> shape = ingot.getStringList("shape");
+        if (!List.of("SG", "GS").equals(shape) && !List.of("SGS", "G G", "SGS").equals(shape)) {
+            return false;
+        }
+        ingot.set("shape", List.of("SS", "GG"));
+        return true;
+    }
+
+    private boolean migrateNetheriteTemplateDisplayName(ConfigurationSection recipes) {
+        ConfigurationSection template = recipes.getConfigurationSection("netherite-template");
+        if (template == null || !"&cNetherite Upgrade Template".equals(template.getString("display-name"))) {
+            return false;
+        }
+        template.set("display-name", "&cUpgrade Template");
+        return true;
     }
 
     private boolean ensureDefaultRecipe(ConfigurationSection recipes, String id, String displayName, String result, List<String> shape, String[][] ingredientDefaults) {
@@ -187,7 +243,8 @@ public final class RecipeManager {
             return;
         }
 
-        removeExistingRecipes(recipes);
+        replacedVanillaResults = collectReplacedVanillaResults(recipes);
+        removeExistingPluginRecipes();
 
         for (String id : recipes.getKeys(false)) {
             ConfigurationSection section = recipes.getConfigurationSection(id);
@@ -198,11 +255,16 @@ public final class RecipeManager {
         }
     }
 
-    private void removeExistingRecipes(ConfigurationSection recipes) {
+    public void unregisterConfiguredRecipes() {
+        removeExistingPluginRecipes();
+    }
+
+    private Set<Material> collectReplacedVanillaResults(ConfigurationSection recipes) {
         Set<Material> replacedResults = new HashSet<>();
         for (String id : recipes.getKeys(false)) {
             ConfigurationSection section = recipes.getConfigurationSection(id);
-            if (section == null || !section.getBoolean("enabled", true) || !section.getBoolean("replace-vanilla", false)) {
+            if (section == null || !section.getBoolean("enabled", true) || !section.getBoolean("replace-vanilla", false)
+                    || !validateRecipe(id, section, false)) {
                 continue;
             }
             Material result = material(section.getString("result"));
@@ -210,7 +272,10 @@ public final class RecipeManager {
                 replacedResults.add(result);
             }
         }
+        return replacedResults;
+    }
 
+    private void removeExistingPluginRecipes() {
         List<NamespacedKey> keys = new ArrayList<>();
         Iterator<Recipe> iterator = Bukkit.recipeIterator();
         while (iterator.hasNext()) {
@@ -222,14 +287,44 @@ public final class RecipeManager {
             NamespacedKey key = keyed.getKey();
             String namespace = key.getNamespace();
             boolean pluginRecipe = namespace.equals(plugin.getName().toLowerCase(Locale.ROOT)) || namespace.equals("ezrecipes");
-            boolean replacedVanillaRecipe = namespace.equals("minecraft") && replacedResults.contains(recipe.getResult().getType());
-            if (pluginRecipe || replacedVanillaRecipe) {
+            if (pluginRecipe) {
                 keys.add(key);
             }
         }
         for (NamespacedKey key : keys) {
             Bukkit.removeRecipe(key);
         }
+    }
+
+    @EventHandler
+    public void onPrepareCraft(PrepareItemCraftEvent event) {
+        Recipe recipe = event.getRecipe();
+        if (isReplacedVanillaRecipe(recipe)) {
+            event.getInventory().setResult(null);
+        }
+    }
+
+    @EventHandler
+    public void onPrepareSmithing(PrepareSmithingEvent event) {
+        if (isReplacedVanillaRecipe(event.getInventory().getRecipe())) {
+            event.setResult(null);
+        }
+    }
+
+    @EventHandler
+    public void onFurnaceSmelt(FurnaceSmeltEvent event) {
+        if (isReplacedVanillaRecipe(event.getRecipe())) {
+            event.setCancelled(true);
+        }
+    }
+
+    private boolean isReplacedVanillaRecipe(Recipe recipe) {
+        if (!(recipe instanceof Keyed keyed)) {
+            return false;
+        }
+        NamespacedKey key = keyed.getKey();
+        return key.getNamespace().equals("minecraft")
+                && replacedVanillaResults.contains(recipe.getResult().getType());
     }
 
     public void sendStatus(CommandSender sender) {

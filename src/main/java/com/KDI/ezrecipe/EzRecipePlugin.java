@@ -19,10 +19,18 @@ public final class EzRecipePlugin extends JavaPlugin {
         }
 
         EzRecipeCommand command = new EzRecipeCommand(recipeManager);
+        getServer().getPluginManager().registerEvents(recipeManager, this);
         getServer().getPluginManager().registerEvents(command, this);
         registerCommand("ez-setup", command);
         registerCommand("ez-status", command);
         registerCommand("ez-show", command);
+    }
+
+    @Override
+    public void onDisable() {
+        if (recipeManager != null) {
+            recipeManager.unregisterConfiguredRecipes();
+        }
     }
 
     private void registerCommand(String name, EzRecipeCommand command) {
