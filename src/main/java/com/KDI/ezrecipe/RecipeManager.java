@@ -114,17 +114,16 @@ public final class RecipeManager implements Listener {
         ConfigurationSection replacement = recipes.getConfigurationSection("netherite-ingot");
         if (replacement == null) {
             replacement = recipes.createSection("netherite-ingot");
+            replacement.set("enabled", enabled);
+            replacement.set("display-name", "&8Netherite Ingot");
+            replacement.set("result", "NETHERITE_INGOT");
+            replacement.set("amount", 1);
+            replacement.set("replace-vanilla", true);
+            replacement.set("shape", List.of("SS", "GG"));
+            ConfigurationSection ingredients = replacement.createSection("ingredients");
+            ingredients.set("S", "NETHERITE_SCRAP");
+            ingredients.set("G", "GOLD_INGOT");
         }
-        replacement.set("enabled", enabled);
-        replacement.set("display-name", "&8Netherite Ingot");
-        replacement.set("result", "NETHERITE_INGOT");
-        replacement.set("amount", 1);
-        replacement.set("replace-vanilla", true);
-        replacement.set("shape", List.of("SS", "GG"));
-        replacement.set("ingredients", null);
-        ConfigurationSection ingredients = replacement.createSection("ingredients");
-        ingredients.set("S", "NETHERITE_SCRAP");
-        ingredients.set("G", "GOLD_INGOT");
         return true;
     }
 

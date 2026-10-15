@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Current version** | `1.0.14` |
+| **Current version** | `1.0.16` |
 | **Minecraft target** | Paper `1.21.4` (Java 21) |
 | **Build system** | Maven (`pom.xml`) |
 | **Plugin author** | voidles02 |
@@ -14,7 +14,7 @@
 - Configurable shaped crafting recipes: toggle them, choose the output and amount, set a display name, and define the crafting pattern and ingredients.
 - Eight included recipes, with configurable recipes loaded and validated at startup.
 - Recipe browser and crafting-pattern viewer at `/ez-show`.
-- Refreshed recipe menus with a darker backdrop, clearer navigation, and a crafting-result indicator.
+- Refreshed recipe menus with a darker backdrop, clearly aligned crafting previews, recipe details, pagination, and an empty-state message.
 - Vanilla recipe blocking for the Netherite Upgrade Template and Netherite Ingot recipes. The plugin keeps vanilla recipe keys registered, avoiding recipe-book warnings, while blocking their crafting, smithing, or smelting outputs when `replace-vanilla: true` is enabled.
 - `/setup` reapplies missing or invalid defaults and registers configured recipes; `/status` reports whether each enabled recipe is registered.
 - Automatic defaults and repairs for the Golden Carrot, Netherite recipes, and Bottle o' Enchanting configuration.
@@ -48,7 +48,7 @@ The two Netherite recipes are marked to replace matching vanilla recipes by defa
 
 ## Installation and first run
 
-1. Stop the server and place `ez-recipe-1.0.14.jar` in its `plugins` folder.
+1. Stop the server and place `ez-recipe-1.0.16.jar` in its `plugins` folder.
 2. Start the server. EZRecipe creates `plugins/EZRecipe/config.yml` from the bundled defaults and registers enabled recipes.
 3. Adjust the generated configuration if desired, then restart the server or run `/setup` to re-register recipes.
 4. Players can open the recipe browser with `/ez-show`.

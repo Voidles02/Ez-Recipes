@@ -2,7 +2,24 @@
 
 Release notes for EZRecipe. Newest releases are listed first.
 
-**Current version:** `1.0.15` · **Compatibility baseline:** Paper `1.21.4` · Java `21`
+**Current version:** `1.0.16` · **Compatibility baseline:** Paper `1.21.4` · Java `21`
+
+---
+
+## `1.0.16` — Recipe viewer and stability fixes
+
+### 🎨 Improved
+- Repositioned the 3×3 crafting preview, result arrow, and output item into one aligned row group for easier reading.
+- Clarified recipe-card details and pagination, and added a message when no enabled valid recipes are available.
+
+### 🛡 Stability
+- Legacy Netherite Scrap configuration migration now removes the retired setting without overwriting an existing customized Netherite Ingot recipe.
+
+### 🛠 Fixed
+- Empty cells and unused rows in crafting previews now render as empty slots instead of decorative filler panes.
+
+### ℹ️ Compatibility
+- Updated the Maven artifact and plugin metadata to `1.0.16`. The compatibility baseline remains Paper `1.21.4` with Java `21`.
 
 ---
 

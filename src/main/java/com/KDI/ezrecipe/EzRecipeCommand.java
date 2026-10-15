@@ -20,9 +20,9 @@ import org.bukkit.configuration.ConfigurationSection;
 import java.util.List;
 
 public final class EzRecipeCommand implements CommandExecutor, Listener {
-    private static final String MAIN_TITLE = "§2EZRecipes §8» §fRecipes";
+    private static final String MAIN_TITLE = "§8✦ §2EZRecipes §8» §fRecipe Book";
     private static final int[] RECIPE_SLOTS = {10, 11, 12, 13, 14, 15};
-    private static final int[] GRID_SLOTS = {10, 11, 12, 19, 20, 21, 28, 29, 30};
+    private static final int[] GRID_SLOTS = {19, 20, 21, 28, 29, 30, 37, 38, 39};
 
     private final RecipeManager recipeManager;
 
@@ -135,16 +135,23 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
                 meta.setDisplayName(color(section.getString("display-name", id)));
-                meta.setLore(List.of("§7Click to view this recipe."));
+                meta.setLore(List.of("§8CRAFTING RECIPE", "", "§7Output: §f"
+                        + section.getInt("amount", 1) + "x " + section.getString("result", "UNKNOWN"),
+                        "§eClick to preview"));
                 item.setItemMeta(meta);
             }
             inventory.setItem(RECIPE_SLOTS[index], item);
         }
 
+        if (ids.isEmpty()) {
+            inventory.setItem(13, item("BARRIER", "§cNo recipes available",
+                    List.of("§7No enabled, valid recipes were found.")));
+        }
         if (page > 0) {
             inventory.setItem(18, item("ARROW", "§ePrevious page", List.of("§7Page " + page + " of " + pageCount)));
         }
-        inventory.setItem(22, item("PAPER", "§fPage " + (page + 1) + " of " + pageCount, List.of()));
+        inventory.setItem(22, item("PAPER", "§fPage " + (page + 1) + " of " + pageCount,
+                List.of("§7" + ids.size() + " available recipes")));
         if (page + 1 < pageCount) {
             inventory.setItem(26, item("ARROW", "§eNext page", List.of("§7Page " + (page + 2) + " of " + pageCount)));
         }
@@ -161,7 +168,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
         String displayName = color(section.getString("display-name", id));
         RecipeMenuHolder holder = new RecipeMenuHolder(id, List.of(), page);
         Inventory inventory = Bukkit.createInventory(holder, 45,
-                "§2Recipe §8» " + displayName);
+                "§8✦ §2Recipe Book §8» §f" + displayName);
         holder.inventory = inventory;
         fill(inventory, "BLACK_STAINED_GLASS_PANE");
 
@@ -171,7 +178,8 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             int row = index / 3;
             int column = index % 3;
             String patternRow = row < shape.size() ? shape.get(row) : "";
-            if (column >= patternRow.length() || ingredients == null) {
+            if (column >= patternRow.length() || ingredients == null || patternRow.charAt(column) == ' ') {
+                inventory.setItem(GRID_SLOTS[index], null);
                 continue;
             }
 
@@ -182,7 +190,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
             }
         }
 
-        inventory.setItem(13, item("ARROW", "§bCrafting result", List.of("§7Ingredients produce the item on the right.")));
+        inventory.setItem(31, item("ARROW", "§bCrafting result", List.of("§7Ingredients produce the item on the right.")));
 
         Material result = recipeManager.parseMaterial(section.getString("result"));
         if (result != null) {
@@ -193,7 +201,7 @@ public final class EzRecipeCommand implements CommandExecutor, Listener {
                 meta.setLore(List.of("§7Result: §f" + section.getInt("amount", 1) + "x"));
                 output.setItemMeta(meta);
             }
-            inventory.setItem(16, output);
+            inventory.setItem(34, output);
         }
 
         ItemStack back = item("ARROW", "§cBack to recipes", List.of("§7Click to return to page " + (page + 1) + "."));
